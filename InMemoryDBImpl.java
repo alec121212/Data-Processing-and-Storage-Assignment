@@ -11,43 +11,30 @@ interface InMemoryDB {
 }
 
 public class InMemoryDBImpl implements InMemoryDB {
-    // This will hold the committed state of the database (visible outside transactions)
     private Map<String, Integer> committedData = new HashMap<>();
     
-    // This will hold the staged (uncommitted) changes within the current transaction, if any
     private Map<String, Integer> transactionData = null;
 
-    // Used to track which keys were modified during the transaction so we know what to rollback
-    // if needed. We will store the original values before modification.
     private Map<String, Integer> originalValues = null;
 
-    // Flag to know if a transaction is in progress
     private boolean inTransaction = false;
 
     @Override
     public Integer get(String key) {
-        // If not in a transaction, we only return committed data
-        // If in a transaction, we still only show committed data 
-        // until commit has been called. The problem statement 
-        // requires that get() does not show uncommitted changes.
+
         return committedData.get(key);
     }
 
     @Override
     public void put(String key, int val) {
         if (!inTransaction) {
-            // According to the requirements, putting without a transaction should cause an error
             throw new IllegalStateException("No transaction in progress. Cannot put without a transaction.");
         }
 
-        // If this key is not already recorded in originalValues, it means this is the first time 
-        // we are modifying it in this transaction, so we store its old value for potential rollback.
         if (!originalValues.containsKey(key)) {
-            // Store the original committed value (or null if it didn't exist)
             originalValues.put(key, committedData.get(key));
         }
         
-        // Update the transaction data with the new value
         transactionData.put(key, val);
     }
 
@@ -66,7 +53,6 @@ public class InMemoryDBImpl implements InMemoryDB {
         if (!inTransaction) {
             throw new IllegalStateException("No transaction in progress. Cannot commit.");
         }
-        // Apply all changes from transactionData to committedData
         for (Map.Entry<String, Integer> entry : transactionData.entrySet()) {
             if (entry.getValue() == null) {
                 committedData.remove(entry.getKey());
@@ -74,7 +60,7 @@ public class InMemoryDBImpl implements InMemoryDB {
                 committedData.put(entry.getKey(), entry.getValue());
             }
         }
-        // End the transaction
+
         inTransaction = false;
         transactionData = null;
         originalValues = null;
@@ -85,7 +71,6 @@ public class InMemoryDBImpl implements InMemoryDB {
         if (!inTransaction) {
             throw new IllegalStateException("No transaction in progress. Cannot rollback.");
         }
-        // Revert changes using originalValues
         for (Map.Entry<String, Integer> entry : originalValues.entrySet()) {
             String key = entry.getKey();
             Integer oldVal = entry.getValue();
@@ -95,17 +80,14 @@ public class InMemoryDBImpl implements InMemoryDB {
                 committedData.put(key, oldVal);
             }
         }
-        // End the transaction
         inTransaction = false;
         transactionData = null;
         originalValues = null;
     }
 
-    // For demonstration/testing purposes
     public static void main(String[] args) {
         InMemoryDB db = new InMemoryDBImpl();
         
-        // Should return null since A doesn't exist
         System.out.println("get(A) before transaction: " + db.get("A")); // null
 
         // Should throw an error (uncomment to test)
